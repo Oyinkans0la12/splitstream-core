@@ -628,3 +628,180 @@ mod fixed_vesting_sweep {
         );
     }
 }
+mod auth {
+    use super::*;
+
+    fn auth_env() -> (Env, SplitStreamVaultClient<'static>, Address, Address) {
+        let env = Env::default();
+        let admin = Address::generate(&env);
+        let oracle = Address::generate(&env);
+        let token = Address::generate(&env);
+        env.mock_all_auths();
+        let contract_id = env.register(SplitStreamVault, ());
+        let client = SplitStreamVaultClient::new(&env, &contract_id);
+        client.initialize(&admin, &oracle, &token);
+        (env, client, admin, oracle)
+    }
+
+    fn mock_one(
+        env: &Env,
+        contract_id: &Address,
+        address: &Address,
+        fn_name: &str,
+        args: Vec<Val>,
+    ) {
+        env.mock_auths(&[MockAuth {
+            address,
+            invoke: &MockAuthInvoke {
+                contract: contract_id,
+                fn_name,
+                args,
+                sub_invokes: &[],
+            },
+        }]);
+    }
+
+    #[test]
+    fn post_cycle_root_requires_oracle_not_admin() {
+        let (env, client, admin, oracle) = auth_env();
+        let root = BytesN::from_array(&env, &[0x11; 32]);
+        let args: Vec<Val> = (1_u64, root.clone(), 1_000_i128).into_val(&env);
+        let contract_id = client.address.clone();
+
+        // Admin's auth must not authorize the oracle-gated function.
+        mock_one(&env, &contract_id, &admin, "post_cycle_root", args.clone());
+        assert!(client.try_post_cycle_root(&1, &root, &1_000).is_err());
+
+        // Oracle's auth authorizes it.
+        mock_one(&env, &contract_id, &oracle, "post_cycle_root", args);
+        client.post_cycle_root(&1, &root, &1_000);
+    }
+
+    #[test]
+    fn challenge_and_replace_requires_admin_not_oracle() {
+        let (env, client, admin, oracle) = auth_env();
+        let root = BytesN::from_array(&env, &[0x22; 32]);
+        let contract_id = client.address.clone();
+        mock_one(
+            &env,
+            &contract_id,
+            &oracle,
+            "post_cycle_root",
+            (1_u64, root.clone(), 1_000_i128).into_val(&env),
+        );
+        client.post_cycle_root(&1, &root, &1_000);
+
+        let new_root = BytesN::from_array(&env, &[0x33; 32]);
+        let args: Vec<Val> = (1_u64, new_root.clone(), 2_000_i128).into_val(&env);
+        // Oracle cannot replace its own root.
+        mock_one(
+            &env,
+            &contract_id,
+            &oracle,
+            "challenge_and_replace_root",
+            args.clone(),
+        );
+        assert!(client
+            .try_challenge_and_replace_root(&1, &new_root, &2_000)
+            .is_err());
+        // Admin can.
+        mock_one(
+            &env,
+            &contract_id,
+            &admin,
+            "challenge_and_replace_root",
+            args,
+        );
+        client.challenge_and_replace_root(&1, &new_root, &2_000);
+    }
+
+    #[test]
+    fn distribute_fixed_requires_oracle() {
+        let (env, client, admin, oracle) = auth_env();
+        let contract_id = client.address.clone();
+        let shares = vec![&env, (admin.clone(), 10_000_u32)];
+        mock_one(
+            &env,
+            &contract_id,
+            &admin,
+            "configure_fixed_shares",
+            (shares.clone(),).into_val(&env),
+        );
+        client.configure_fixed_shares(&shares);
+
+        let args: Vec<Val> = (1_000_i128,).into_val(&env);
+        mock_one(&env, &contract_id, &admin, "distribute_fixed", args.clone());
+        assert!(client.try_distribute_fixed(&1_000).is_err());
+        mock_one(&env, &contract_id, &oracle, "distribute_fixed", args);
+        client.distribute_fixed(&1_000);
+    }
+
+    #[test]
+    fn admin_gated_functions_reject_other_callers() {
+        let (env, client, admin, oracle) = auth_env();
+        let contract_id = client.address.clone();
+
+        // configure_fixed_shares with oracle auth fails.
+        let shares = vec![&env, (admin.clone(), 10_000_u32)];
+        mock_one(
+            &env,
+            &contract_id,
+            &oracle,
+            "configure_fixed_shares",
+            (shares.clone(),).into_val(&env),
+        );
+        assert!(client.try_configure_fixed_shares(&shares).is_err());
+
+        // request_sweep with oracle auth fails.
+        let args: Vec<Val> = (admin.clone(), 100_i128).into_val(&env);
+        mock_one(&env, &contract_id, &oracle, "request_sweep", args.clone());
+        assert!(client.try_request_sweep(&admin, &100).is_err());
+
+        // execute_sweep with oracle auth fails.
+        mock_one(&env, &contract_id, &oracle, "execute_sweep", vec![&env]);
+        assert!(client.try_execute_sweep().is_err());
+    }
+
+    #[test]
+    fn credit_claim_requires_the_contributor() {
+        let (env, client, admin, oracle) = auth_env();
+        let contract_id = client.address.clone();
+        let root = BytesN::from_array(&env, &[0x44; 32]);
+        mock_one(
+            &env,
+            &contract_id,
+            &oracle,
+            "post_cycle_root",
+            (1_u64, root.clone(), 100_i128).into_val(&env),
+        );
+        client.post_cycle_root(&1, &root, &100);
+        env.ledger().set_timestamp(CHALLENGE_WINDOW_SECS);
+
+        let proof = vec![&env];
+        // Oracle's auth cannot authorize a claim on the admin's behalf.
+        mock_one(
+            &env,
+            &contract_id,
+            &oracle,
+            "credit_claim",
+            (admin.clone(), 1_u64, 100_i128, proof.clone()).into_val(&env),
+        );
+        assert!(client
+            .try_credit_claim(&admin, &1, &100, &proof)
+            .is_err());
+
+        // The contributor's own auth passes, and the empty proof then fails
+        // verification — proving auth is checked first.
+        mock_one(
+            &env,
+            &contract_id,
+            &admin,
+            "credit_claim",
+            (admin.clone(), 1_u64, 100_i128, proof.clone()).into_val(&env),
+        );
+        assert_eq!(
+            client.try_credit_claim(&admin, &1, &100, &proof),
+            Err(Ok(SplitStreamError::InvalidProof))
+        );
+    }
+}
