@@ -426,3 +426,205 @@ mod challenge_window {
         );
     }
 }
+mod fixed_vesting_sweep {
+    use super::*;
+
+    #[test]
+    fn fixed_shares_must_sum_to_10000() {
+        let t = setup();
+        let bad = vec![&t.env, (t.admin.clone(), 9_998_u32), (t.oracle.clone(), 1_u32)];
+        assert_eq!(
+            t.client().try_configure_fixed_shares(&bad),
+            Err(Ok(SplitStreamError::InvalidShareTotal))
+        );
+        let bad = vec![&t.env, (t.admin.clone(), 5_000_u32), (t.oracle.clone(), 5_001_u32)];
+        assert_eq!(
+            t.client().try_configure_fixed_shares(&bad),
+            Err(Ok(SplitStreamError::InvalidShareTotal))
+        );
+
+        let good = vec![&t.env, (t.admin.clone(), 5_000_u32), (t.oracle.clone(), 5_000_u32)];
+        t.client().configure_fixed_shares(&good);
+        assert_eq!(t.client().get_fixed_shares(), good);
+    }
+
+    #[test]
+    fn distribute_fixed_credits_basis_point_shares() {
+        let t = setup();
+        let shares = vec![
+            &t.env,
+            (t.admin.clone(), 5_000_u32),
+            (t.oracle.clone(), 3_000_u32),
+            (t.contract_id.clone(), 2_000_u32),
+        ];
+        t.client().configure_fixed_shares(&shares);
+        t.client().distribute_fixed(&1_000);
+        assert_eq!(t.client().get_balance(&t.admin), 500);
+        assert_eq!(t.client().get_balance(&t.oracle), 300);
+        assert_eq!(t.client().get_balance(&t.contract_id), 200);
+
+        // Rounding truncates toward zero per recipient (integer math only).
+        t.client().distribute_fixed(&9);
+        assert_eq!(t.client().get_balance(&t.admin), 504);
+        assert_eq!(t.client().get_balance(&t.oracle), 302);
+        assert_eq!(t.client().get_balance(&t.contract_id), 201);
+    }
+
+    #[test]
+    fn distribute_fixed_rejects_nonpositive_amount() {
+        let t = setup();
+        assert_eq!(
+            t.client().try_distribute_fixed(&0),
+            Err(Ok(SplitStreamError::InvalidAmount))
+        );
+    }
+
+    #[test]
+    fn distributed_balances_withdraw_after_funding() {
+        let t = setup();
+        fund_vault(&t, 10_000); // admin deposits their entire minted balance
+        let shares = vec![&t.env, (t.admin.clone(), 10_000_u32)];
+        t.client().configure_fixed_shares(&shares);
+        t.client().distribute_fixed(&2_000);
+        t.client().withdraw(&t.admin);
+        // The 10_000 deposit went to the vault; the 2_000 distribution is
+        // what comes back out on withdrawal.
+        assert_eq!(t.token_balance(&t.admin), 2_000);
+        assert_eq!(t.token_balance(&t.contract_id), 8_000);
+    }
+
+    #[test]
+    fn vesting_releases_linearly_and_transfers_directly() {
+        let t = setup();
+        fund_vault(&t, 10_000);
+        t.env.ledger().set_sequence_number(100);
+        t.client().create_vesting(&t.admin, &1_000, &100);
+
+        // No elapsed time yet — legitimate no-op returning 0.
+        assert_eq!(t.client().claim_vested(&t.admin), 0);
+
+        t.env.ledger().set_sequence_number(150); // 50% elapsed
+        assert_eq!(t.client().claim_vested(&t.admin), 500);
+        assert_eq!(t.token_balance(&t.admin), 500);
+
+        // Nothing new until more time passes.
+        assert_eq!(t.client().claim_vested(&t.admin), 0);
+
+        t.env.ledger().set_sequence_number(200); // 100% elapsed (capped)
+        assert_eq!(t.client().claim_vested(&t.admin), 500);
+        assert_eq!(t.client().claim_vested(&t.admin), 0);
+        assert_eq!(t.token_balance(&t.admin), 1_000);
+    }
+
+    #[test]
+    fn vesting_recreate_preserves_claimed() {
+        let t = setup();
+        fund_vault(&t, 10_000);
+        t.env.ledger().set_sequence_number(100);
+        t.client().create_vesting(&t.admin, &1_000, &100);
+        t.env.ledger().set_sequence_number(150);
+        assert_eq!(t.client().claim_vested(&t.admin), 500);
+
+        // Admin re-creates the schedule with a larger total — claimed survives.
+        t.env.ledger().set_sequence_number(200);
+        t.client().create_vesting(&t.admin, &2_000, &100);
+        // 2_000 * 0 / 100 = 0 vested so far in the new schedule; 0 < 500 claimed.
+        assert_eq!(t.client().claim_vested(&t.admin), 0);
+        t.env.ledger().set_sequence_number(225); // 25% of new schedule = 500
+        assert_eq!(t.client().claim_vested(&t.admin), 0);
+        t.env.ledger().set_sequence_number(300); // fully vested = 2_000
+        assert_eq!(t.client().claim_vested(&t.admin), 1_500);
+    }
+
+    #[test]
+    fn vesting_rejects_invalid_params_and_missing_schedule() {
+        let t = setup();
+        assert_eq!(
+            t.client().try_create_vesting(&t.admin, &0, &100),
+            Err(Ok(SplitStreamError::InvalidAmount))
+        );
+        assert_eq!(
+            t.client().try_create_vesting(&t.admin, &100, &0),
+            Err(Ok(SplitStreamError::InvalidAmount))
+        );
+        assert_eq!(
+            t.client().try_claim_vested(&t.admin),
+            Err(Ok(SplitStreamError::InsufficientBalance))
+        );
+    }
+
+    #[test]
+    fn sweep_timelock_enforced_in_seconds() {
+        let t = setup();
+        fund_vault(&t, 10_000);
+        t.env.ledger().set_timestamp(1_000_000);
+        t.client().request_sweep(&t.oracle, &2_500);
+
+        // One second before the timelock elapses it is still locked.
+        t.env
+            .ledger()
+            .set_timestamp(1_000_000 + SWEEP_TIMELOCK_SECS - 1);
+        assert_eq!(
+            t.client().try_execute_sweep(),
+            Err(Ok(SplitStreamError::SweepNotReady))
+        );
+
+        // Exactly at 72h the sweep executes and clears.
+        t.env
+            .ledger()
+            .set_timestamp(1_000_000 + SWEEP_TIMELOCK_SECS);
+        t.client().execute_sweep();
+        assert_eq!(t.token_balance(&t.oracle), 2_500);
+        assert_eq!(
+            t.client().try_execute_sweep(),
+            Err(Ok(SplitStreamError::NoSweepPending))
+        );
+    }
+
+    #[test]
+    fn sweep_request_overwrite_restarts_timelock() {
+        let t = setup();
+        fund_vault(&t, 10_000);
+        t.env.ledger().set_timestamp(1_000_000);
+        t.client().request_sweep(&t.oracle, &1_000);
+        // Overwrite with a different destination/amount.
+        t.env.ledger().set_timestamp(1_000_000 + 10);
+        t.client().request_sweep(&t.admin, &2_000);
+
+        // The old request's timelock does not apply to the new one.
+        t.env
+            .ledger()
+            .set_timestamp(1_000_000 + SWEEP_TIMELOCK_SECS);
+        assert_eq!(
+            t.client().try_execute_sweep(),
+            Err(Ok(SplitStreamError::SweepNotReady))
+        );
+        t.env
+            .ledger()
+            .set_timestamp(1_000_000 + 10 + SWEEP_TIMELOCK_SECS);
+        t.client().execute_sweep();
+        assert_eq!(t.token_balance(&t.admin), 2_000);
+    }
+
+    #[test]
+    fn sweep_cancel_is_idempotent_and_clears_request() {
+        let t = setup();
+        t.client().request_sweep(&t.oracle, &100);
+        t.client().cancel_sweep();
+        assert_eq!(
+            t.client().try_execute_sweep(),
+            Err(Ok(SplitStreamError::NoSweepPending))
+        );
+        // Cancelling again with nothing pending is a no-op, not an error.
+        t.client().cancel_sweep();
+    }
+
+    #[test]
+    fn sweep_rejects_nonpositive_amount() {
+        let t = setup();
+        assert_eq!(
+            t.client().try_request_sweep(&t.oracle, &0),
+            Err(Ok(SplitStreamError::InvalidAmount))
+        );
+    }
+}
