@@ -10,3 +10,5 @@ contracts/*/target/
 *.swp
 .idea/
 .vscode/
+# Soroban test snapshots
+contracts/vault/test_snapshots/

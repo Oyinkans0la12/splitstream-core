@@ -37,6 +37,9 @@ mod sweep;
 mod types;
 mod vesting;
 
+#[cfg(test)]
+mod test;
+
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, MuxedAddress, Symbol, Vec};
 
 pub use crate::errors::SplitStreamError;
