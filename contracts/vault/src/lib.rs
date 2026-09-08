@@ -29,10 +29,12 @@
 extern crate std;
 
 mod errors;
+mod types;
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, MuxedAddress, Symbol, Vec};
 
 pub use crate::errors::SplitStreamError;
+pub use crate::types::{CycleInfo, SweepRequestData, VestingData};
 
 /// The SplitStream payout vault.
 #[contract]
