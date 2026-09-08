@@ -139,6 +139,10 @@ build/test workflow and PR expectations, and [SECURITY.md](SECURITY.md) for
 the security model and responsible-disclosure process. Found a bug or have a
 feature idea? [Open an issue](https://github.com/Oyinkans0la12/splitstream-core/issues).
 
+## Contributors
+
+[![Contributors](https://contrib.rocks/image?repo=Oyinkans0la12/splitstream-core)](https://github.com/Oyinkans0la12/splitstream-core/graphs/contributors)
+
 ## Community
 
 - 💬 **GitHub Issues** — bug reports, feature requests, and design discussion
