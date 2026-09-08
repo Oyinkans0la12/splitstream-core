@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  # Pin the CLI major to the SDK major (27.x) so the wasm build path used in
+  # CI matches the one used for the Testnet deployment.
+  STELLAR_CLI_VERSION: 27.1.0
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32v1-none
+          components: clippy
+
+      - name: Install stellar-cli (prebuilt binary)
+        run: |
+          curl -sL -o /tmp/stellar-cli.tar.gz \
+            "https://github.com/stellar/stellar-cli/releases/download/v${STELLAR_CLI_VERSION}/stellar-cli-${STELLAR_CLI_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          tar xzf /tmp/stellar-cli.tar.gz -C /tmp
+          mkdir -p "$HOME/.local/bin"
+          cp /tmp/stellar "$HOME/.local/bin/stellar"
+          chmod +x "$HOME/.local/bin/stellar"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          stellar --version
+
+      - name: cargo check
+        run: cargo check --all-targets
+
+      - name: cargo test
+        run: cargo test --all-targets
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      # wasm build is a different path from cargo build — it must be exercised
+      # separately so regressions in the deployable artifact fail CI.
+      - name: stellar contract build
+        run: stellar contract build --package splitstream-vault
