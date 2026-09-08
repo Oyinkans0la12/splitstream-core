@@ -89,4 +89,40 @@ impl SplitStreamVault {
             .publish((Symbol::new(&env, "deposit"), from.clone(), amount), ());
         Ok(())
     }
+
+    /// Post a cycle's payout-manifest root (oracle-gated). One post per cycle;
+    /// corrections go through `challenge_and_replace_root`.
+    pub fn post_cycle_root(
+        env: Env,
+        cycle_id: u64,
+        root: BytesN<32>,
+        total_amount: i128,
+    ) -> Result<(), SplitStreamError> {
+        let oracle = storage::get_oracle(&env)?;
+        oracle.require_auth();
+
+        if storage::get_cycle_info(&env, cycle_id).is_some() {
+            return Err(SplitStreamError::CycleAlreadyPosted);
+        }
+
+        let info = types::CycleInfo {
+            root: root.clone(),
+            total_amount,
+            posted_at: env.ledger().timestamp(),
+            claims_started: false,
+            replaced: false,
+        };
+        storage::set_cycle_info(&env, cycle_id, &info);
+
+        env.events().publish(
+            (
+                Symbol::new(&env, "cycle_posted"),
+                cycle_id,
+                root.clone(),
+                total_amount,
+            ),
+            (),
+        );
+        Ok(())
+    }
 }
