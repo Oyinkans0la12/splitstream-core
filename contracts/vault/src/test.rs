@@ -308,3 +308,121 @@ mod merkle_tests {
         assert!(claims[0].2.is_empty());
     }
 }
+mod challenge_window {
+    use super::*;
+
+    #[test]
+    fn claim_rejected_until_window_elapses() {
+        let t = setup();
+        let (root, claims) = build_manifest(&t.env, &[(t.admin.clone(), 100)]);
+        t.env.ledger().set_timestamp(1_000_000);
+        t.client().post_cycle_root(&1, &root, &100);
+
+        // Window boundary is inclusive: 86_399s after posting is still closed.
+        t.env
+            .ledger()
+            .set_timestamp(1_000_000 + CHALLENGE_WINDOW_SECS - 1);
+        assert_eq!(
+            t.client()
+                .try_credit_claim(&t.admin, &1, &100, proof_for(&claims, &t.admin)),
+            Err(Ok(SplitStreamError::ClaimsNotYetOpen))
+        );
+
+        // Exactly at 86_400s claims open.
+        t.env
+            .ledger()
+            .set_timestamp(1_000_000 + CHALLENGE_WINDOW_SECS);
+        t.client()
+            .credit_claim(&t.admin, &1, &100, proof_for(&claims, &t.admin));
+        assert_eq!(t.client().get_balance(&t.admin), 100);
+    }
+
+    #[test]
+    fn replace_within_window_overrides_root_and_keeps_posted_at() {
+        let t = setup();
+        let (root1, claims1) = build_manifest(&t.env, &[(t.admin.clone(), 100)]);
+        let (root2, claims2) = build_manifest(&t.env, &[(t.admin.clone(), 200)]);
+        t.env.ledger().set_timestamp(1_000_000);
+        t.client().post_cycle_root(&1, &root1, &100);
+
+        t.client().challenge_and_replace_root(&1, &root2, &200);
+
+        let info = t.client().get_cycle_info(&1).unwrap();
+        assert_eq!(info.root, root2);
+        assert_eq!(info.total_amount, 200);
+        assert!(info.replaced);
+        assert!(!info.claims_started);
+        // The dispute window does not restart on replacement.
+        assert_eq!(info.posted_at, 1_000_000);
+
+        // Claims must now prove against the NEW root.
+        t.env
+            .ledger()
+            .set_timestamp(1_000_000 + CHALLENGE_WINDOW_SECS);
+        assert_eq!(
+            t.client()
+                .try_credit_claim(&t.admin, &1, &100, proof_for(&claims1, &t.admin)),
+            Err(Ok(SplitStreamError::InvalidProof))
+        );
+        t.client()
+            .credit_claim(&t.admin, &1, &200, proof_for(&claims2, &t.admin));
+        assert_eq!(t.client().get_balance(&t.admin), 200);
+    }
+
+    #[test]
+    fn replacement_rejected_after_claims_started() {
+        let t = setup();
+        let (root, claims) = build_manifest(&t.env, &[(t.admin.clone(), 100)]);
+        t.env.ledger().set_timestamp(1_000_000);
+        t.client().post_cycle_root(&1, &root, &100);
+        t.env
+            .ledger()
+            .set_timestamp(1_000_000 + CHALLENGE_WINDOW_SECS);
+        t.client()
+            .credit_claim(&t.admin, &1, &100, proof_for(&claims, &t.admin));
+
+        let (root2, _) = build_manifest(&t.env, &[(t.admin.clone(), 200)]);
+        // claims_started takes precedence even though the window has also closed.
+        assert_eq!(
+            t.client().try_challenge_and_replace_root(&1, &root2, &200),
+            Err(Ok(SplitStreamError::ClaimsAlreadyStarted))
+        );
+    }
+
+    #[test]
+    fn replacement_rejected_after_window_closes() {
+        let t = setup();
+        let (root, _) = build_manifest(&t.env, &[(t.admin.clone(), 100)]);
+        t.client().post_cycle_root(&1, &root, &100);
+        t.env.ledger().set_timestamp(CHALLENGE_WINDOW_SECS);
+        let (root2, _) = build_manifest(&t.env, &[(t.admin.clone(), 200)]);
+        assert_eq!(
+            t.client().try_challenge_and_replace_root(&1, &root2, &200),
+            Err(Ok(SplitStreamError::ChallengeWindowClosed))
+        );
+    }
+
+    #[test]
+    fn second_replacement_rejected() {
+        let t = setup();
+        let (root1, _) = build_manifest(&t.env, &[(t.admin.clone(), 100)]);
+        let (root2, _) = build_manifest(&t.env, &[(t.admin.clone(), 200)]);
+        let (root3, _) = build_manifest(&t.env, &[(t.admin.clone(), 300)]);
+        t.client().post_cycle_root(&1, &root1, &100);
+        t.client().challenge_and_replace_root(&1, &root2, &200);
+        assert_eq!(
+            t.client().try_challenge_and_replace_root(&1, &root3, &300),
+            Err(Ok(SplitStreamError::RootAlreadyReplaced))
+        );
+    }
+
+    #[test]
+    fn replacement_rejected_for_unknown_cycle() {
+        let t = setup();
+        let (root, _) = build_manifest(&t.env, &[(t.admin.clone(), 100)]);
+        assert_eq!(
+            t.client().try_challenge_and_replace_root(&42, &root, &100),
+            Err(Ok(SplitStreamError::CycleNotFound))
+        );
+    }
+}
