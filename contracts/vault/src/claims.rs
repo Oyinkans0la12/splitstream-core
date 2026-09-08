@@ -64,3 +64,27 @@ pub(crate) fn credit_claim(
     );
     Ok(())
 }
+
+/// Withdraw the contributor's full claimable balance.
+///
+/// Checks-effects-interactions: the stored balance is zeroed before the token
+/// transfer so a re-entrant call cannot double-withdraw.
+pub(crate) fn withdraw(env: &Env, contributor: &Address) -> Result<(), SplitStreamError> {
+    contributor.require_auth();
+
+    let token = storage::get_token(env)?;
+    let balance = storage::get_balance(env, contributor);
+    if balance <= 0 {
+        return Err(SplitStreamError::InsufficientBalance);
+    }
+
+    storage::set_balance(env, contributor, 0);
+
+    let contract = env.current_contract_address();
+    let to: MuxedAddress = contributor.into();
+    soroban_sdk::token::TokenClient::new(env, &token).transfer(&contract, &to, &balance);
+
+    env.events()
+        .publish((Symbol::new(env, "withdrawn"), contributor.clone(), balance), ());
+    Ok(())
+}

@@ -190,4 +190,9 @@ impl SplitStreamVault {
     ) -> Result<(), SplitStreamError> {
         claims::credit_claim(&env, &contributor, cycle_id, amount, &proof)
     }
+
+    /// Withdraw the contributor's full claimable balance.
+    pub fn withdraw(env: Env, contributor: Address) -> Result<(), SplitStreamError> {
+        claims::withdraw(&env, &contributor)
+    }
 }
