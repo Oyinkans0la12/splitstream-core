@@ -34,6 +34,7 @@ mod fixed_split;
 mod merkle;
 mod storage;
 mod types;
+mod vesting;
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, MuxedAddress, Symbol, Vec};
 
@@ -209,5 +210,22 @@ impl SplitStreamVault {
     /// Distribute `amount` to fixed-share recipients (oracle-gated).
     pub fn distribute_fixed(env: Env, amount: i128) -> Result<(), SplitStreamError> {
         fixed_split::distribute_fixed(&env, amount)
+    }
+
+    /// Create (or re-create) a linear vesting schedule for a contributor,
+    /// preserving any already-claimed amount.
+    pub fn create_vesting(
+        env: Env,
+        contributor: Address,
+        total: i128,
+        duration_ledgers: u32,
+    ) -> Result<(), SplitStreamError> {
+        vesting::create_vesting(&env, &contributor, total, duration_ledgers)
+    }
+
+    /// Claim the newly vested amount; transfers directly to the contributor.
+    /// Returns the amount claimed (0 is a legitimate no-new-vesting state).
+    pub fn claim_vested(env: Env, contributor: Address) -> Result<i128, SplitStreamError> {
+        vesting::claim_vested(&env, &contributor)
     }
 }
