@@ -29,6 +29,7 @@
 extern crate std;
 
 mod errors;
+mod merkle;
 mod storage;
 mod types;
 
