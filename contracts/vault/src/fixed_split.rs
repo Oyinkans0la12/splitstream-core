@@ -34,19 +34,35 @@ pub(crate) fn configure_fixed_shares(
     Ok(())
 }
 
-/// Credit each fixed-share recipient `amount * bps / 10_000` (integer math,
-/// no floats) to their claimable balance.
+/// Distribute `amount` to fixed-share recipients, oracle-gated (the
+/// cycle-automated trigger).
 ///
-/// Auth: the oracle (the cycle-automated trigger). Note on SDK 27: the
-/// `current_contract_invoker` caller-introspection API was removed in the 22.x
-/// auth rework, and a failed `require_auth` aborts the whole invocation, so an
-/// "admin OR oracle" check cannot be expressed in a single function. The
-/// oracle is the relay the splitstream-actions daemon calls; the admin
-/// exercises every other governance surface (shares, sweeps, challenges).
+/// Note on SDK 27: the `current_contract_invoker` caller-introspection API was
+/// removed in the 22.x auth rework, and a failed `require_auth` aborts the
+/// whole invocation, so an "admin OR oracle" check cannot be expressed in a
+/// single function. The admin-gated twin is `admin_distribute_fixed` below;
+/// both delegate to the same `internal_distribute_fixed` body so the two paths
+/// can never drift.
 pub(crate) fn distribute_fixed(env: &Env, amount: i128) -> Result<(), SplitStreamError> {
     let oracle = storage::get_oracle(env)?;
     oracle.require_auth();
+    internal_distribute_fixed(env, amount)
+}
 
+/// Distribute `amount` to fixed-share recipients, admin-gated (a manual
+/// distribution triggered by a maintainer without the oracle key). Shares the
+/// exact same body as `distribute_fixed`.
+pub(crate) fn admin_distribute_fixed(env: &Env, amount: i128) -> Result<(), SplitStreamError> {
+    let admin = storage::get_admin(env)?;
+    admin.require_auth();
+    internal_distribute_fixed(env, amount)
+}
+
+/// The shared distribution body: credit each fixed-share recipient
+/// `amount * bps / 10_000` (integer math, no floats) to their claimable
+/// balance and emit one `fixed_distributed` event per recipient. Auth is
+/// enforced by the callers above, never here.
+fn internal_distribute_fixed(env: &Env, amount: i128) -> Result<(), SplitStreamError> {
     if amount <= 0 {
         return Err(SplitStreamError::InvalidAmount);
     }

@@ -39,6 +39,7 @@ original post (replacement never restarts it).
 | `withdraw(contributor)` | contributor | Pays out the claimable balance (checks-effects-interactions). |
 | `configure_fixed_shares(shares)` | admin | Sets the bps split list (must sum to 10_000). |
 | `distribute_fixed(amount)` | oracle | Credits each recipient `amount * bps / 10_000`. |
+| `admin_distribute_fixed(amount)` | admin | Manual distribution; same body/events as `distribute_fixed`. |
 | `create_vesting(contributor, total, duration_ledgers)` | admin | Creates/re-creates a linear vesting schedule (preserves `claimed`). |
 | `claim_vested(contributor)` | contributor | Claims newly vested tokens, transferring them directly. |
 | `request_sweep(to, amount)` | admin | Registers a sweep request, starting the 72h timelock. |
@@ -75,11 +76,13 @@ These are deliberate, documented decisions (each noted in its commit message):
 - **`SweepRequest` is persistent, not temporary.** Temporary entries have a
   Mainnet max TTL of 17,280 ledgers (~1 day), shorter than the 72-hour sweep
   timelock — a request there would expire before it could execute.
-- **`distribute_fixed` is oracle-gated only.** SDK 27 removed
-  `current_contract_invoker` (the caller-introspection API) in the 22.x auth
-  rework, and a failed `require_auth` aborts the invocation, so an "admin OR
-  oracle" check cannot be expressed in one function. The oracle is the
-  automated trigger; the admin governs every other surface.
+- **`distribute_fixed` is split into two auth-gated functions.** SDK 27
+  removed `current_contract_invoker` (the caller-introspection API) in the
+  22.x auth rework, and a failed `require_auth` aborts the invocation, so an
+  "admin OR oracle" check cannot be expressed in one function. `distribute_fixed`
+  is oracle-gated (the automated trigger); `admin_distribute_fixed` is the
+  admin-gated manual twin. Both delegate to one shared internal body, so they
+  can never drift.
 - **`claim_vested` with no schedule returns `NoVestingSchedule`** (error 17) —
   a dedicated variant so downstream SDKs can distinguish "no schedule" from
   "no balance".
@@ -97,7 +100,7 @@ contracts/vault/src/
 ├── errors.rs      # #[contracterror] SplitStreamError
 ├── merkle.rs      # leaf hashing + sorted-pair proof verification
 ├── claims.rs      # credit_claim, withdraw
-├── fixed_split.rs # configure_fixed_shares, distribute_fixed
+├── fixed_split.rs # configure_fixed_shares, distribute_fixed, admin_distribute_fixed
 ├── vesting.rs     # create_vesting, claim_vested
 ├── sweep.rs       # request/execute/cancel sweep
 └── test.rs        # one test module per feature

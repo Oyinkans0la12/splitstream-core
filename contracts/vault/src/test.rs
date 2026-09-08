@@ -477,6 +477,34 @@ mod fixed_vesting_sweep {
             t.client().try_distribute_fixed(&0),
             Err(Ok(SplitStreamError::InvalidAmount))
         );
+        // The admin twin shares the same validation (same internal body).
+        assert_eq!(
+            t.client().try_admin_distribute_fixed(&0),
+            Err(Ok(SplitStreamError::InvalidAmount))
+        );
+    }
+
+    #[test]
+    fn admin_distribute_fixed_credits_basis_point_shares() {
+        let t = setup();
+        let shares = vec![
+            &t.env,
+            (t.admin.clone(), 5_000_u32),
+            (t.oracle.clone(), 3_000_u32),
+            (t.contract_id.clone(), 2_000_u32),
+        ];
+        t.client().configure_fixed_shares(&shares);
+        t.client().admin_distribute_fixed(&1_000);
+        assert_eq!(t.client().get_balance(&t.admin), 500);
+        assert_eq!(t.client().get_balance(&t.oracle), 300);
+        assert_eq!(t.client().get_balance(&t.contract_id), 200);
+
+        // Rounding truncates toward zero per recipient (integer math only),
+        // exactly as on the oracle path.
+        t.client().admin_distribute_fixed(&9);
+        assert_eq!(t.client().get_balance(&t.admin), 504);
+        assert_eq!(t.client().get_balance(&t.oracle), 302);
+        assert_eq!(t.client().get_balance(&t.contract_id), 201);
     }
 
     #[test]
@@ -744,6 +772,37 @@ mod auth {
         assert!(client.try_distribute_fixed(&1_000).is_err());
         mock_one(&env, &contract_id, &oracle, "distribute_fixed", args);
         client.distribute_fixed(&1_000);
+    }
+
+    #[test]
+    fn admin_distribute_fixed_requires_admin_not_oracle() {
+        let (env, client, admin, oracle) = auth_env();
+        let contract_id = client.address.clone();
+        let shares = vec![&env, (admin.clone(), 10_000_u32)];
+        mock_one(
+            &env,
+            &contract_id,
+            &admin,
+            "configure_fixed_shares",
+            (shares.clone(),).into_val(&env),
+        );
+        client.configure_fixed_shares(&shares);
+
+        // Oracle's auth must not authorize the admin-gated function.
+        let args: Vec<Val> = (1_000_i128,).into_val(&env);
+        mock_one(
+            &env,
+            &contract_id,
+            &oracle,
+            "admin_distribute_fixed",
+            args.clone(),
+        );
+        assert!(client.try_admin_distribute_fixed(&1_000).is_err());
+
+        // Admin's auth authorizes it.
+        mock_one(&env, &contract_id, &admin, "admin_distribute_fixed", args);
+        client.admin_distribute_fixed(&1_000);
+        assert_eq!(client.get_balance(&admin), 1_000);
     }
 
     #[test]

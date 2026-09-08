@@ -211,9 +211,17 @@ impl SplitStreamVault {
         fixed_split::configure_fixed_shares(&env, &shares)
     }
 
-    /// Distribute `amount` to fixed-share recipients (oracle-gated).
+    /// Distribute `amount` to fixed-share recipients (oracle-gated — the
+    /// cycle-automated trigger).
     pub fn distribute_fixed(env: Env, amount: i128) -> Result<(), SplitStreamError> {
         fixed_split::distribute_fixed(&env, amount)
+    }
+
+    /// Distribute `amount` to fixed-share recipients (admin-gated — a manual
+    /// trigger for maintainers without the oracle key). Same body and event
+    /// emissions as `distribute_fixed`; only the authorization differs.
+    pub fn admin_distribute_fixed(env: Env, amount: i128) -> Result<(), SplitStreamError> {
+        fixed_split::admin_distribute_fixed(&env, amount)
     }
 
     /// Create (or re-create) a linear vesting schedule for a contributor,
