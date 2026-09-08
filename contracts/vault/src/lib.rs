@@ -43,4 +43,32 @@ pub struct SplitStreamVault;
 
 #[contractimpl]
 impl SplitStreamVault {
+    /// One-time initialization. Stores the admin, oracle (CI relay) and the
+    /// SEP-41 token in instance storage.
+    pub fn initialize(
+        env: Env,
+        admin: Address,
+        oracle: Address,
+        token: Address,
+    ) -> Result<(), SplitStreamError> {
+        admin.require_auth();
+        if storage::is_initialized(&env) {
+            return Err(SplitStreamError::AlreadyInitialized);
+        }
+        storage::set_admin(&env, &admin);
+        storage::set_oracle(&env, &oracle);
+        storage::set_token(&env, &token);
+        storage::bump_instance(&env);
+
+        env.events().publish(
+            (
+                Symbol::new(&env, "initialized"),
+                admin.clone(),
+                oracle.clone(),
+                token.clone(),
+            ),
+            (),
+        );
+        Ok(())
+    }
 }
