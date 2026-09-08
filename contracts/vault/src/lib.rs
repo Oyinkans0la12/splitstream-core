@@ -30,6 +30,7 @@ extern crate std;
 
 mod claims;
 mod errors;
+mod fixed_split;
 mod merkle;
 mod storage;
 mod types;
@@ -194,5 +195,19 @@ impl SplitStreamVault {
     /// Withdraw the contributor's full claimable balance.
     pub fn withdraw(env: Env, contributor: Address) -> Result<(), SplitStreamError> {
         claims::withdraw(&env, &contributor)
+    }
+
+    /// Configure the fixed basis-point split list; the bps must sum to
+    /// exactly 10_000.
+    pub fn configure_fixed_shares(
+        env: Env,
+        shares: Vec<(Address, u32)>,
+    ) -> Result<(), SplitStreamError> {
+        fixed_split::configure_fixed_shares(&env, &shares)
+    }
+
+    /// Distribute `amount` to fixed-share recipients (oracle-gated).
+    pub fn distribute_fixed(env: Env, amount: i128) -> Result<(), SplitStreamError> {
+        fixed_split::distribute_fixed(&env, amount)
     }
 }
