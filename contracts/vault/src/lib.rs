@@ -246,4 +246,29 @@ impl SplitStreamVault {
     }
 
     // ── View functions (read-only, no auth) ────────────────────────────────
+
+    /// Claimable pull-payment balance for a contributor.
+    pub fn get_balance(env: Env, contributor: Address) -> i128 {
+        storage::get_balance(&env, &contributor)
+    }
+
+    /// Challenge-window state for a cycle, if posted.
+    pub fn get_cycle_info(env: Env, cycle_id: u64) -> Option<CycleInfo> {
+        storage::get_cycle_info(&env, cycle_id)
+    }
+
+    /// Whether a contributor has already claimed for a cycle.
+    pub fn has_claimed(env: Env, cycle_id: u64, contributor: Address) -> bool {
+        storage::get_cycle_claimed(&env, cycle_id, &contributor)
+    }
+
+    /// Vesting schedule for a contributor, if any.
+    pub fn get_vesting(env: Env, contributor: Address) -> Option<VestingData> {
+        storage::get_vesting(&env, &contributor)
+    }
+
+    /// The configured fixed split list.
+    pub fn get_fixed_shares(env: Env) -> Vec<(Address, u32)> {
+        storage::get_fixed_shares(&env)
+    }
 }
