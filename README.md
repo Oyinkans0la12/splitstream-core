@@ -161,5 +161,12 @@ feature idea? [Open an issue](https://github.com/Oyinkans0la12/splitstream-core/
       <br />
       <a href="https://github.com/Oyinkans0la12">GitHub</a>
     </td>
+    <td align="left">
+      <strong>Contact</strong>
+      <br />
+      <a href="https://github.com/Oyinkans0la12/splitstream-core/issues">GitHub Issues</a> — primary channel for bugs, feature requests, and design discussion
+      <br />
+      🔒 For vulnerabilities, use a <a href="https://github.com/Oyinkans0la12/splitstream-core/security/advisories/new">private security advisory</a> per SECURITY.md
+    </td>
   </tr>
 </table>
