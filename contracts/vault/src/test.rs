@@ -249,3 +249,62 @@ mod deposit_claims {
         );
     }
 }
+mod merkle_tests {
+    use super::*;
+
+    #[test]
+    fn leaf_hash_is_deterministic_and_distinct() {
+        let env = Env::default();
+        let a = Address::generate(&env);
+        let b = Address::generate(&env);
+        let h1 = leaf_hash(&env, &a, 100);
+        assert_eq!(h1, leaf_hash(&env, &a, 100));
+        assert_ne!(h1, leaf_hash(&env, &a, 101));
+        assert_ne!(h1, leaf_hash(&env, &b, 100));
+    }
+
+    #[test]
+    fn proof_verifies_for_every_leaf_including_right_sided() {
+        let env = Env::default();
+        let a = Address::generate(&env);
+        let b = Address::generate(&env);
+        let c = Address::generate(&env);
+        let d = Address::generate(&env);
+        let (root, claims) = build_manifest(&env, &[(a, 100), (b, 200), (c, 300), (d, 400)]);
+        for (addr, amt, proof) in &claims {
+            let leaf = leaf_hash(&env, addr, *amt);
+            assert!(verify_proof(&env, &leaf, proof, &root), "leaf {:?}", addr);
+        }
+    }
+
+    #[test]
+    fn tampered_proofs_are_rejected() {
+        let env = Env::default();
+        let a = Address::generate(&env);
+        let b = Address::generate(&env);
+        let (root, claims) = build_manifest(&env, &[(a.clone(), 100), (b.clone(), 200)]);
+        let proof_a = proof_for(&claims, &a);
+
+        // Wrong amount produces a leaf that does not verify.
+        let wrong_leaf = leaf_hash(&env, &a, 101);
+        assert!(!verify_proof(&env, &wrong_leaf, proof_a, &root));
+
+        // Swapping in the sibling of another leaf fails.
+        let proof_b = proof_for(&claims, &b);
+        let leaf_a = leaf_hash(&env, &a, 100);
+        assert!(!verify_proof(&env, &leaf_a, proof_b, &root));
+
+        // An arbitrary root rejects every proof.
+        let fake_root = BytesN::from_array(&env, &[0x42; 32]);
+        assert!(!verify_proof(&env, &leaf_a, proof_a, &fake_root));
+    }
+
+    #[test]
+    fn single_leaf_manifest_root_is_the_leaf() {
+        let env = Env::default();
+        let a = Address::generate(&env);
+        let (root, claims) = build_manifest(&env, &[(a.clone(), 100)]);
+        assert_eq!(root, leaf_hash(&env, &a, 100));
+        assert!(claims[0].2.is_empty());
+    }
+}
