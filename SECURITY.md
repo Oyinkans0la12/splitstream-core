@@ -15,6 +15,14 @@ maintainer message) and include:
 We aim to acknowledge reports within 48 hours and to ship a fix (and, where
 relevant, a migration path) before any public disclosure.
 
+## Audit status
+
+SplitStreamVault has **not** undergone an independent third-party security
+audit. The threat model and invariants below reflect our own analysis and
+test coverage, not an external review. Treat this as pre-audit software:
+appropriate for Testnet and for controlled Mainnet use with amounts you can
+afford to lose, not yet for large unattended treasuries.
+
 ## Threat model
 
 The vault holds pooled funds in a single SEP-41 token. Actors and trust
