@@ -59,11 +59,8 @@ pub(crate) fn claim_vested(env: &Env, contributor: &Address) -> Result<i128, Spl
     contributor.require_auth();
 
     let token = storage::get_token(env)?;
-    // The frozen error enum has no "vesting not found" variant; InsufficientBalance
-    // is the closest semantic ("there is nothing claimable"). Tracked as a
-    // Phase-13 follow-up (add a dedicated error variant).
-    let mut schedule = storage::get_vesting(env, contributor)
-        .ok_or(SplitStreamError::InsufficientBalance)?;
+    let mut schedule =
+        storage::get_vesting(env, contributor).ok_or(SplitStreamError::NoVestingSchedule)?;
 
     let elapsed = env
         .ledger()

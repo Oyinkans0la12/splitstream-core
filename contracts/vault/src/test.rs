@@ -549,7 +549,17 @@ mod fixed_vesting_sweep {
         );
         assert_eq!(
             t.client().try_claim_vested(&t.admin),
-            Err(Ok(SplitStreamError::InsufficientBalance))
+            Err(Ok(SplitStreamError::NoVestingSchedule))
+        );
+    }
+
+    #[test]
+    fn claim_vested_reports_no_vesting_schedule_for_unknown_contributor() {
+        let t = setup();
+        let stranger = Address::generate(&t.env);
+        assert_eq!(
+            t.client().try_claim_vested(&stranger),
+            Err(Ok(SplitStreamError::NoVestingSchedule))
         );
     }
 

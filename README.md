@@ -80,8 +80,9 @@ These are deliberate, documented decisions (each noted in its commit message):
   rework, and a failed `require_auth` aborts the invocation, so an "admin OR
   oracle" check cannot be expressed in one function. The oracle is the
   automated trigger; the admin governs every other surface.
-- **`claim_vested` with no schedule returns `InsufficientBalance`.** The frozen
-  error enum has no dedicated variant; tracked as a follow-up.
+- **`claim_vested` with no schedule returns `NoVestingSchedule`** (error 17) —
+  a dedicated variant so downstream SDKs can distinguish "no schedule" from
+  "no balance".
 - **Event topic names are full `Symbol`s** (e.g. `"claim_credited"`,
   `"cycle_root_replaced"`) via the (deprecated-but-supported)
   `Events::publish` API, preserving the frozen topic names from the spec.

@@ -39,4 +39,6 @@ pub enum SplitStreamError {
     RootAlreadyReplaced = 15,
     /// Claims have already started against this cycle's root.
     ClaimsAlreadyStarted = 16,
+    /// The contributor has no vesting schedule to claim against.
+    NoVestingSchedule = 17,
 }
