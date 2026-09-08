@@ -1,6 +1,10 @@
-# splitstream-core
+<p align="center">
+  <img src="assets/splitstream-banner.svg" alt="SplitStream banner" width="700" />
+</p>
 
-A Soroban smart contract, **SplitStreamVault**, that pools funds (a single
+# SplitStream | [Testnet Explorer](https://stellar.expert/explorer/testnet/contract/CCC2LP2LOYZOLA2JW4C4K7JMR3TRJZIKHDSQYSFJ3R3MCDJLVBT3PZOC) | [Contributing](CONTRIBUTING.md) | [Security](SECURITY.md)
+
+**SplitStreamVault** is a Soroban smart contract that pools funds (a single
 SEP-41 token per deployment — USDC or native XLM SAC) and settles them to
 contributors via three strategies:
 
@@ -10,7 +14,7 @@ contributors via three strategies:
    credited a pull-payment balance they withdraw themselves.
 2. **Fixed basis-point waterfalls** — recurring team/community/reserve splits.
    The admin configures a share list summing to exactly 10,000 bps and the
-   oracle triggers distributions.
+   oracle (or admin, manually) triggers distributions.
 3. **Linear vesting streams** — maintainer retention rewards, paid directly on
    claim.
 
@@ -47,15 +51,7 @@ original post (replacement never restarts it).
 | `cancel_sweep()` | admin | Clears a pending sweep request (idempotent). |
 | `get_balance(contributor)` / `get_cycle_info(cycle_id)` / `has_claimed(cycle_id, contributor)` / `get_vesting(contributor)` / `get_fixed_shares()` | — | Read-only views. |
 
-## Storage design
-
-`Admin`, `Oracle`, `Token` live in **instance** storage (TTL bumped on every
-admin-gated call). `CycleData`, `CycleClaimed`, `Balance`, `FixedShares`,
-`Vesting` and `SweepRequest` live in **persistent** storage; every write
-extends the entry TTL in the same call (`storage::bump_persistent`) — a missing
-`extend_ttl` is the classic Soroban bug where accounting silently expires.
-
-## Building and testing
+## Quick Start
 
 Rust 1.84+ is required (the `wasm32v1-none` target). Pinned SDK:
 `soroban-sdk = "27.0.6"` (latest stable; do not use release candidates).
@@ -64,10 +60,34 @@ Rust 1.84+ is required (the `wasm32v1-none` target). Pinned SDK:
 # Tests (soroban-sdk testutils; no network needed)
 cargo test --workspace
 
+# Lint
+cargo clippy --all-targets -- -D warnings
+
 # Deployable wasm — build with stellar-cli, never `cargo build` for the crate
 stellar contract build --package splitstream-vault
 # artifact: target/wasm32v1-none/release/splitstream_vault.wasm (~20 KB)
 ```
+
+CI (`.github/workflows/ci.yml`) runs `cargo check`, `cargo test`,
+`cargo clippy -D warnings`, and `stellar contract build` on every push and PR
+to `main`.
+
+## Deployed — Testnet
+
+| | |
+|---|---|
+| Vault contract | `CCC2LP2LOYZOLA2JW4C4K7JMR3TRJZIKHDSQYSFJ3R3MCDJLVBT3PZOC` |
+| Token contract | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` (native SAC) |
+| Explorer | https://stellar.expert/explorer/testnet/contract/CCC2LP2LOYZOLA2JW4C4K7JMR3TRJZIKHDSQYSFJ3R3MCDJLVBT3PZOC |
+| Network | Test SDF Network ; September 2015 (Testnet) |
+
+## Storage design
+
+`Admin`, `Oracle`, `Token` live in **instance** storage (TTL bumped on every
+admin-gated call). `CycleData`, `CycleClaimed`, `Balance`, `FixedShares`,
+`Vesting` and `SweepRequest` live in **persistent** storage; every write
+extends the entry TTL in the same call (`storage::bump_persistent`) — a missing
+`extend_ttl` is the classic Soroban bug where accounting silently expires.
 
 ## Design decisions & known deviations
 
@@ -106,5 +126,34 @@ contracts/vault/src/
 └── test.rs        # one test module per feature
 ```
 
-See `CONTRIBUTING.md` for development conventions and `SECURITY.md` for the
-security model and reporting process.
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the
+build/test workflow and PR expectations, and [SECURITY.md](SECURITY.md) for
+the security model and responsible-disclosure process. Found a bug or have a
+feature idea? [Open an issue](https://github.com/Oyinkans0la12/splitstream-core/issues).
+
+## Community
+
+- 💬 **GitHub Issues** — bug reports, feature requests, and design discussion
+- 🔒 **Security** — report vulnerabilities privately per [SECURITY.md](SECURITY.md)
+- 📋 **Wave** — this repo participates in the
+  [Drips Stellar Wave](https://www.drips.network/wave/stellar)
+
+## Maintainers
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/Oyinkans0la12">
+        <img src="https://github.com/Oyinkans0la12.png" width="100" alt="Oyinkans0la12" />
+      </a>
+      <br />
+      <strong>Oyinkans0la12</strong>
+      <br />
+      Smart Contract Engineer
+      <br />
+      <a href="https://github.com/Oyinkans0la12">GitHub</a>
+    </td>
+  </tr>
+</table>
