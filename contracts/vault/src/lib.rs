@@ -33,6 +33,7 @@ mod errors;
 mod fixed_split;
 mod merkle;
 mod storage;
+mod sweep;
 mod types;
 mod vesting;
 
@@ -228,4 +229,21 @@ impl SplitStreamVault {
     pub fn claim_vested(env: Env, contributor: Address) -> Result<i128, SplitStreamError> {
         vesting::claim_vested(&env, &contributor)
     }
+
+    /// Register (or overwrite) a sweep request, starting the 72h timelock.
+    pub fn request_sweep(env: Env, to: Address, amount: i128) -> Result<(), SplitStreamError> {
+        sweep::request_sweep(&env, &to, amount)
+    }
+
+    /// Execute the pending sweep once the timelock has elapsed.
+    pub fn execute_sweep(env: Env) -> Result<(), SplitStreamError> {
+        sweep::execute_sweep(&env)
+    }
+
+    /// Cancel any pending sweep request (idempotent).
+    pub fn cancel_sweep(env: Env) -> Result<(), SplitStreamError> {
+        sweep::cancel_sweep(&env)
+    }
+
+    // ── View functions (read-only, no auth) ────────────────────────────────
 }
