@@ -28,6 +28,7 @@
 #[cfg(test)]
 extern crate std;
 
+mod claims;
 mod errors;
 mod merkle;
 mod storage;
@@ -172,5 +173,21 @@ impl SplitStreamVault {
             (),
         );
         Ok(())
+    }
+
+    /// Prove a `(contributor, amount)` entry against the current cycle root
+    /// and credit the contributor's pull-payment balance.
+    ///
+    /// Enforces the challenge window: claims are rejected until 24h have
+    /// elapsed since `posted_at`. The first successful claim sets
+    /// `claims_started`, making the root final.
+    pub fn credit_claim(
+        env: Env,
+        contributor: Address,
+        cycle_id: u64,
+        amount: i128,
+        proof: Vec<BytesN<32>>,
+    ) -> Result<(), SplitStreamError> {
+        claims::credit_claim(&env, &contributor, cycle_id, amount, &proof)
     }
 }
