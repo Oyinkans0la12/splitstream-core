@@ -125,4 +125,52 @@ impl SplitStreamVault {
         );
         Ok(())
     }
+
+    /// Challenge and replace a cycle's root within the dispute window
+    /// (admin-gated — deliberately not the oracle, so the automated relay
+    /// cannot override its own dispute window).
+    ///
+    /// Fails once claims have started, once the 24h window has closed, or on a
+    /// second replacement. The original `posted_at` is preserved: the window
+    /// bounds total dispute time to 24h from the original post.
+    pub fn challenge_and_replace_root(
+        env: Env,
+        cycle_id: u64,
+        new_root: BytesN<32>,
+        new_total_amount: i128,
+    ) -> Result<(), SplitStreamError> {
+        let admin = storage::get_admin(&env)?;
+        admin.require_auth();
+        storage::bump_instance(&env);
+
+        let mut cycle =
+            storage::get_cycle_info(&env, cycle_id).ok_or(SplitStreamError::CycleNotFound)?;
+
+        if cycle.claims_started {
+            return Err(SplitStreamError::ClaimsAlreadyStarted);
+        }
+        let elapsed = env.ledger().timestamp().saturating_sub(cycle.posted_at);
+        if elapsed >= types::CHALLENGE_WINDOW_SECS {
+            return Err(SplitStreamError::ChallengeWindowClosed);
+        }
+        if cycle.replaced {
+            return Err(SplitStreamError::RootAlreadyReplaced);
+        }
+
+        cycle.root = new_root.clone();
+        cycle.total_amount = new_total_amount;
+        cycle.replaced = true;
+        storage::set_cycle_info(&env, cycle_id, &cycle);
+
+        env.events().publish(
+            (
+                Symbol::new(&env, "cycle_root_replaced"),
+                cycle_id,
+                new_root.clone(),
+                new_total_amount,
+            ),
+            (),
+        );
+        Ok(())
+    }
 }
