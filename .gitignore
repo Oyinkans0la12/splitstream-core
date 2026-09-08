@@ -1,0 +1,12 @@
+# Rust / Cargo
+/target
+**/*.rs.bk
+
+# Soroban build artifacts
+contracts/*/target/
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
