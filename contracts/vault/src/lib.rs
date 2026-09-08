@@ -71,4 +71,21 @@ impl SplitStreamVault {
         );
         Ok(())
     }
+
+    /// Deposit pooled funds into the vault from `from` via the token contract.
+    pub fn deposit(env: Env, from: Address, amount: i128) -> Result<(), SplitStreamError> {
+        let token = storage::get_token(&env)?;
+        from.require_auth();
+        if amount <= 0 {
+            return Err(SplitStreamError::InvalidAmount);
+        }
+
+        let contract = env.current_contract_address();
+        let to: MuxedAddress = (&contract).into();
+        token::TokenClient::new(&env, &token).transfer(&from, &to, &amount);
+
+        env.events()
+            .publish((Symbol::new(&env, "deposit"), from.clone(), amount), ());
+        Ok(())
+    }
 }
