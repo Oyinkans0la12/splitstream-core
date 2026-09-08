@@ -29,6 +29,7 @@
 extern crate std;
 
 mod errors;
+mod storage;
 mod types;
 
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, MuxedAddress, Symbol, Vec};
