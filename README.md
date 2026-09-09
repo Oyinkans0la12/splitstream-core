@@ -7,6 +7,7 @@
 ![CI](https://github.com/Oyinkans0la12/splitstream-core/actions/workflows/ci.yml/badge.svg)
 ![Soroban SDK](https://img.shields.io/badge/soroban--sdk-27.0.6-blue)
 ![Network](https://img.shields.io/badge/network-testnet-orange)
+![License](https://img.shields.io/github/license/Oyinkans0la12/splitstream-core)
 
 [Testnet Explorer](https://stellar.expert/explorer/testnet/contract/CCC2LP2LOYZOLA2JW4C4K7JMR3TRJZIKHDSQYSFJ3R3MCDJLVBT3PZOC) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
@@ -142,6 +143,10 @@ feature idea? [Open an issue](https://github.com/Oyinkans0la12/splitstream-core/
 ## Contributors
 
 [![Contributors](https://contrib.rocks/image?repo=Oyinkans0la12/splitstream-core)](https://github.com/Oyinkans0la12/splitstream-core/graphs/contributors)
+
+## License
+
+This project is licensed under the MIT License — see [LICENSE](./LICENSE) for details.
 
 ## Community
 
