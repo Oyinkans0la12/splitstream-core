@@ -28,6 +28,13 @@ contributors via three strategies:
 The contract is pull-payment throughout: it never loops over an unbounded
 contributor list in a single transaction.
 
+> **Part of SplitStream** — this repo is one of three: **splitstream-core** (this
+> repo, the Soroban vault contract that holds and settles the funds),
+> [splitstream-actions] (the GitHub→chain bridge that computes each cycle's
+> payout manifest and relays its Merkle root on-chain), and
+> [splitstream-sdk-cli] (the client SDK and CLI contributors claim with and
+> maintainers simulate and report with).
+
 ## The challenge-window mechanism
 
 A posted cycle root is **not immediately claimable**. Maintainers have a fixed
@@ -37,26 +44,6 @@ calculation and correct it on-chain, **once**, via
 it. Once the first claim succeeds, the root is final: replacement is rejected
 after `claims_started` is set, and the window itself is bounded to 24h from the
 original post (replacement never restarts it).
-
-## Contract functions
-
-| Function | Auth | Purpose |
-|---|---|---|
-| `initialize(admin, oracle, token)` | admin | One-time setup; stores admin/oracle/SEP-41 token. |
-| `deposit(from, amount)` | from | Pulls `amount` of the token into the vault. |
-| `post_cycle_root(cycle_id, root, total_amount)` | oracle | Posts a payout-manifest root; one post per cycle. |
-| `challenge_and_replace_root(cycle_id, new_root, new_total_amount)` | admin | Replaces the root within the dispute window (once). |
-| `credit_claim(contributor, cycle_id, amount, proof)` | contributor | Verifies the Merkle proof and credits the claimable balance. |
-| `withdraw(contributor)` | contributor | Pays out the claimable balance (checks-effects-interactions). |
-| `configure_fixed_shares(shares)` | admin | Sets the bps split list (must sum to 10_000). |
-| `distribute_fixed(amount)` | oracle | Credits each recipient `amount * bps / 10_000`. |
-| `admin_distribute_fixed(amount)` | admin | Manual distribution; same body/events as `distribute_fixed`. |
-| `create_vesting(contributor, total, duration_ledgers)` | admin | Creates/re-creates a linear vesting schedule (preserves `claimed`). |
-| `claim_vested(contributor)` | contributor | Claims newly vested tokens, transferring them directly. |
-| `request_sweep(to, amount)` | admin | Registers a sweep request, starting the 72h timelock. |
-| `execute_sweep()` | admin | Executes the sweep once the timelock has elapsed. |
-| `cancel_sweep()` | admin | Clears a pending sweep request (idempotent). |
-| `get_balance(contributor)` / `get_cycle_info(cycle_id)` / `has_claimed(cycle_id, contributor)` / `get_vesting(contributor)` / `get_fixed_shares()` | — | Read-only views. |
 
 ## Quick Start
 
@@ -79,6 +66,34 @@ CI (`.github/workflows/ci.yml`) runs `cargo check`, `cargo test`,
 `cargo clippy -D warnings`, and `stellar contract build` on every push and PR
 to `main`.
 
+## Storage design
+
+`Admin`, `Oracle`, `Token` live in **instance** storage (TTL bumped on every
+admin-gated call). `CycleData`, `CycleClaimed`, `Balance`, `FixedShares`,
+`Vesting` and `SweepRequest` live in **persistent** storage; every write
+extends the entry TTL in the same call (`storage::bump_persistent`) — a missing
+`extend_ttl` is the classic Soroban bug where accounting silently expires.
+
+## Contract functions
+
+| Function | Auth | Purpose |
+|---|---|---|
+| `initialize(admin, oracle, token)` | admin | One-time setup; stores admin/oracle/SEP-41 token. |
+| `deposit(from, amount)` | from | Pulls `amount` of the token into the vault. |
+| `post_cycle_root(cycle_id, root, total_amount)` | oracle | Posts a payout-manifest root; one post per cycle. |
+| `challenge_and_replace_root(cycle_id, new_root, new_total_amount)` | admin | Replaces the root within the dispute window (once). |
+| `credit_claim(contributor, cycle_id, amount, proof)` | contributor | Verifies the Merkle proof and credits the claimable balance. |
+| `withdraw(contributor)` | contributor | Pays out the claimable balance (checks-effects-interactions). |
+| `configure_fixed_shares(shares)` | admin | Sets the bps split list (must sum to 10_000). |
+| `distribute_fixed(amount)` | oracle | Credits each recipient `amount * bps / 10_000`. |
+| `admin_distribute_fixed(amount)` | admin | Manual distribution; same body/events as `distribute_fixed`. |
+| `create_vesting(contributor, total, duration_ledgers)` | admin | Creates/re-creates a linear vesting schedule (preserves `claimed`). |
+| `claim_vested(contributor)` | contributor | Claims newly vested tokens, transferring them directly. |
+| `request_sweep(to, amount)` | admin | Registers a sweep request, starting the 72h timelock. |
+| `execute_sweep()` | admin | Executes the sweep once the timelock has elapsed. |
+| `cancel_sweep()` | admin | Clears a pending sweep request (idempotent). |
+| `get_balance(contributor)` / `get_cycle_info(cycle_id)` / `has_claimed(cycle_id, contributor)` / `get_vesting(contributor)` / `get_fixed_shares()` | — | Read-only views. |
+
 ## Deployed — Testnet
 
 | | |
@@ -88,13 +103,21 @@ to `main`.
 | Explorer | https://stellar.expert/explorer/testnet/contract/CCC2LP2LOYZOLA2JW4C4K7JMR3TRJZIKHDSQYSFJ3R3MCDJLVBT3PZOC |
 | Network | Test SDF Network ; September 2015 (Testnet) |
 
-## Storage design
+## Repository layout
 
-`Admin`, `Oracle`, `Token` live in **instance** storage (TTL bumped on every
-admin-gated call). `CycleData`, `CycleClaimed`, `Balance`, `FixedShares`,
-`Vesting` and `SweepRequest` live in **persistent** storage; every write
-extends the entry TTL in the same call (`storage::bump_persistent`) — a missing
-`extend_ttl` is the classic Soroban bug where accounting silently expires.
+```
+contracts/vault/src/
+├── lib.rs         # #[contract] + #[contractimpl] entry points
+├── storage.rs     # DataKey enum + typed get/set helpers with TTL bumps
+├── types.rs       # CycleInfo, VestingData, SweepRequestData
+├── errors.rs      # #[contracterror] SplitStreamError
+├── merkle.rs      # leaf hashing + sorted-pair proof verification
+├── claims.rs      # credit_claim, withdraw
+├── fixed_split.rs # configure_fixed_shares, distribute_fixed, admin_distribute_fixed
+├── vesting.rs     # create_vesting, claim_vested
+├── sweep.rs       # request/execute/cancel sweep
+└── test.rs        # one test module per feature
+```
 
 ## Design decisions & known deviations
 
@@ -117,22 +140,6 @@ These are deliberate, documented decisions (each noted in its commit message):
   `"cycle_root_replaced"`) via the (deprecated-but-supported)
   `Events::publish` API, preserving the frozen topic names from the spec.
 
-## Repository layout
-
-```
-contracts/vault/src/
-├── lib.rs         # #[contract] + #[contractimpl] entry points
-├── storage.rs     # DataKey enum + typed get/set helpers with TTL bumps
-├── types.rs       # CycleInfo, VestingData, SweepRequestData
-├── errors.rs      # #[contracterror] SplitStreamError
-├── merkle.rs      # leaf hashing + sorted-pair proof verification
-├── claims.rs      # credit_claim, withdraw
-├── fixed_split.rs # configure_fixed_shares, distribute_fixed, admin_distribute_fixed
-├── vesting.rs     # create_vesting, claim_vested
-├── sweep.rs       # request/execute/cancel sweep
-└── test.rs        # one test module per feature
-```
-
 ## Contributing
 
 Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the
@@ -143,10 +150,6 @@ feature idea? [Open an issue](https://github.com/Oyinkans0la12/splitstream-core/
 ## Contributors
 
 [![Contributors](https://contrib.rocks/image?repo=Oyinkans0la12/splitstream-core)](https://github.com/Oyinkans0la12/splitstream-core/graphs/contributors)
-
-## License
-
-This project is licensed under the MIT License — see [LICENSE](./LICENSE) for details.
 
 ## Community
 
@@ -179,3 +182,10 @@ This project is licensed under the MIT License — see [LICENSE](./LICENSE) for 
     </td>
   </tr>
 </table>
+
+## License
+
+This project is licensed under the MIT License — see [LICENSE](./LICENSE) for details.
+
+[splitstream-actions]: https://github.com/Oyinkans0la12/splitstream-actions
+[splitstream-sdk-cli]: https://github.com/Oyinkans0la12/splitstream-sdk-cli
