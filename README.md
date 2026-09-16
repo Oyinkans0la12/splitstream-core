@@ -158,6 +158,11 @@ feature idea? [Open an issue](https://github.com/Oyinkans0la12/splitstream-core/
 - 📋 **Wave** — this repo participates in the
   [Drips Stellar Wave](https://www.drips.network/wave/stellar)
 
+## Socials
+
+- 🗨️ **Discord** — https://discord.gg/DzSUheDtQ
+- 📢 **Telegram** — https://t.me/+zOMeL6fD6uY1ODhk
+
 ## Maintainers
 
 <table>
