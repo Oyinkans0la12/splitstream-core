@@ -1,8 +1,9 @@
 # Introduction
 
-SplitStream is a Soroban settlement protocol that lets a Drips Wave team turn
-pooled treasury funds into a verifiable, disputable, on-chain distribution to
-contributors, instead of manual off-chain calculation. It spans three repos:
+SplitStream is a Soroban settlement protocol that lets an open source team
+turn pooled treasury funds into a verifiable, disputable, on-chain
+distribution to contributors, instead of manual off-chain calculation. It
+spans three repos:
 [splitstream-actions](https://splitstream.gitbook.io/splitstream-actions/)
 (the GitHub→chain bridge that computes each cycle's payout manifest and relays
 its Merkle root on-chain),
@@ -23,7 +24,7 @@ that was posted, and whether the rules allow the payout to happen yet.
 
 ## The problem it solves
 
-Wave payouts are usually settled off-chain. That produces three failures:
+Contributor payouts are usually settled off-chain. That produces three failures:
 
 - **Squabbling over splits.** Points, weights, and shares are argued over in
   chat, with no authoritative artifact to point at.

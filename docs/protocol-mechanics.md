@@ -136,7 +136,7 @@ admin lever over pooled funds is the sweep (72-hour timelock, below).
 
 ## The three settlement strategies
 
-**Merkle-proof claims** — Wave-cycle points payouts. The oracle posts a
+**Merkle-proof claims** — Cycle-based points payouts. The oracle posts a
 manifest root with `post_cycle_root` (oracle auth). After the challenge window,
 contributors call `credit_claim` (contributor auth) to prove a
 `(contributor, amount)` leaf against the stored root and are credited a
