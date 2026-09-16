@@ -21,8 +21,8 @@ root becomes final.
 
 Before changing anything on that boundary, read what depends on it:
 
-- [splitstream-actions docs](https://github.com/Oyinkans0la12/splitstream-actions/blob/main/docs/introduction.md) — manifest generation and root relay.
-- [splitstream-sdk-cli docs](https://github.com/Oyinkans0la12/splitstream-sdk-cli/blob/main/docs/introduction.md) — claim flow and the CLI's contract interface.
+- [splitstream-actions docs](https://splitstream.gitbook.io/splitstream-actions/) — manifest generation and root relay.
+- [splitstream-sdk-cli docs](https://splitstream.gitbook.io/splitstream-sdk-cli/) — claim flow and the CLI's contract interface.
 
 A change that cannot avoid the boundary needs the other two repos updated in
 step with it; state that dependency explicitly in the PR description.
@@ -47,5 +47,5 @@ Pull Request against `main`, and let CI run. Because only squash merges are
 allowed, a PR with several commits lands as one commit — keep one logical unit
 per PR if you want one commit per change in `main`'s history.
 
-[splitstream-actions]: https://github.com/Oyinkans0la12/splitstream-actions
-[splitstream-sdk-cli]: https://github.com/Oyinkans0la12/splitstream-sdk-cli
+[splitstream-actions]: https://splitstream.gitbook.io/splitstream-actions/
+[splitstream-sdk-cli]: https://splitstream.gitbook.io/splitstream-sdk-cli/

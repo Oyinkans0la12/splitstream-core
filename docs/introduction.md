@@ -3,10 +3,10 @@
 SplitStream is a Soroban settlement protocol that lets a Drips Wave team turn
 pooled treasury funds into a verifiable, disputable, on-chain distribution to
 contributors, instead of manual off-chain calculation. It spans three repos:
-[splitstream-actions](https://github.com/Oyinkans0la12/splitstream-actions/blob/main/docs/introduction.md)
+[splitstream-actions](https://splitstream.gitbook.io/splitstream-actions/)
 (the GitHub→chain bridge that computes each cycle's payout manifest and relays
 its Merkle root on-chain),
-[splitstream-sdk-cli](https://github.com/Oyinkans0la12/splitstream-sdk-cli/blob/main/docs/introduction.md)
+[splitstream-sdk-cli](https://splitstream.gitbook.io/splitstream-sdk-cli/)
 (the client SDK and CLI contributors claim with), and this repo,
 **splitstream-core**.
 

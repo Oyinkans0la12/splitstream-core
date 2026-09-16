@@ -9,7 +9,7 @@
 ![Network](https://img.shields.io/badge/network-testnet-orange)
 ![License](https://img.shields.io/github/license/Oyinkans0la12/splitstream-core)
 
-[Testnet Explorer](https://stellar.expert/explorer/testnet/contract/CCC2LP2LOYZOLA2JW4C4K7JMR3TRJZIKHDSQYSFJ3R3MCDJLVBT3PZOC) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+[Docs](https://splitstream.gitbook.io/splitstream-core/) · [Testnet Explorer](https://stellar.expert/explorer/testnet/contract/CCC2LP2LOYZOLA2JW4C4K7JMR3TRJZIKHDSQYSFJ3R3MCDJLVBT3PZOC) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 **SplitStreamVault** is a Soroban smart contract that pools funds (a single
 SEP-41 token per deployment — USDC or native XLM SAC) and settles them to
