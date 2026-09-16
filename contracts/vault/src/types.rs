@@ -2,7 +2,7 @@
 
 use soroban_sdk::{contracttype, Address, BytesN};
 
-/// Challenge-window state for one Wave cycle payout.
+/// Challenge-window state for one payout cycle.
 ///
 /// A posted root is not immediately claimable: maintainers have a fixed
 /// [`CHALLENGE_WINDOW_SECS`] window to catch a bad points calculation and

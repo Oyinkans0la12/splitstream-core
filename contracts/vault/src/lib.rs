@@ -3,7 +3,7 @@
 //! A Soroban contract that pools funds (a single SEP-41 token per deployment)
 //! and settles them to contributors via three strategies:
 //!
-//! 1. **Merkle-proof claims** — Wave-cycle points payouts. A cycle root is
+//! 1. **Merkle-proof claims** — Cycle-based points payouts. A cycle root is
 //!    posted by the oracle and enters a 24h challenge window during which the
 //!    admin may replace it (once) before any claim can extract funds against
 //!    it. After the window, contributors claim by proving a `(contributor,

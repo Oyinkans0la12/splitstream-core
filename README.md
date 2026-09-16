@@ -15,7 +15,7 @@
 SEP-41 token per deployment — USDC or native XLM SAC) and settles them to
 contributors via three strategies:
 
-1. **Merkle-proof claims** — Wave-cycle points payouts. The oracle posts a
+1. **Merkle-proof claims** — Cycle-based points payouts. The oracle posts a
    payout-manifest root per cycle; after a 24-hour dispute window contributors
    claim by proving a `(contributor, amount)` leaf against the root and are
    credited a pull-payment balance they withdraw themselves.
@@ -155,8 +155,6 @@ feature idea? [Open an issue](https://github.com/Oyinkans0la12/splitstream-core/
 
 - 💬 **GitHub Issues** — bug reports, feature requests, and design discussion
 - 🔒 **Security** — report vulnerabilities privately per [SECURITY.md](SECURITY.md)
-- 📋 **Wave** — this repo participates in the
-  [Drips Stellar Wave](https://www.drips.network/wave/stellar)
 
 ## Socials
 
